@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>AFRIFLOW - Présélection Stratégique</title>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <style>
+        body { margin:0; font-family: 'Segoe UI', sans-serif; background:#111; color:#fff; display:flex; justify-content:center; align-items:center; min-height:100vh; }
+        .card { width:90%; max-width:900px; background:#1b1b1b; border-radius:20px; padding:30px; }
+        .progress { height:8px; background:#333; border-radius:20px; margin-bottom: 20px; }
+        .bar { height:8px; width:0; background:#4caf50; border-radius:20px; transition: width 0.3s ease; }
+        .btn { background:#2563eb; color:#fff; border:0; padding:12px 20px; border-radius:10px; cursor:pointer; font-size: 16px; margin-top: 15px;}
+        .btn:hover { background: #1d4ed8; }
+        .opt { padding:12px; margin:10px 0; background:#222; border-radius:10px; cursor:pointer; transition: 0.2s;}
+        .opt:hover { background: #333; }
+        .opt.sel { border:2px solid #4caf50; background: #1e3a1f; }
+        .hidden { display:none; }
+        input { width: 100%; margin: 8px 0; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #222; color: #fff; box-sizing: border-box;}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <!-- ÉCRAN D'ACCUEIL -->
+        <div id="start">
+            <h1>AFRIFLOW - Évaluation d'Intégration Stratégique</h1>
+            <p>Veuillez remplir vos coordonnées pour commencer l'évaluation basée sur les TDR du projet.</p>
+            <input id="nom" placeholder="Nom" required>
+            <input id="prenom" placeholder="Prénom" required>
+            <input id="telephone" placeholder="Téléphone" required>
+            <input id="email" type="email" placeholder="Email" required>
+            <br>
+            <button class="btn" onclick="begin()">Commencer l'évaluation</button>
+        </div>
+
+        <!-- ÉCRAN DU QCM -->
+        <div id="quiz" class="hidden">
+            <div class="progress"><div id="bar" class="bar"></div></div>
+            <h2 id="q"></h2>
+            <div id="a"></div>
+            <button class="btn" onclick="nextQ()">Suivant</button>
+        </div>
+        
+        <!-- ÉCRAN DE FIN -->
+        <div id="end" class="hidden"></div>
+    </div>
+
+    <script>
+        // Initialisation de EmailJS
+        emailjs.init({publicKey: 'bn0sR_2xfMu-debdr'});
+        
+        // 15 Questions stratégiques basées sur les TDR d'AfriFlow
+        const questions = [
+            ['1. Quelle est la méthodologie exacte adoptée par AfriFlow pour limiter les risques avant toute expansion majeure ?', ['A) Produire massivement → Exporter → Sécuriser les parts de marché', 'B) Tester → Mesurer → Corriger → Développer → Exporter', 'C) S\'endetter → Investir en marketing → Recruter → Exporter', 'D) Cibler l\'Europe immédiatement pour maximiser les marges initiales'], 1],
+            ['2. Quelles sont les modalités de libération du capital lors de l\'intégration initiale d\'un nouvel actionnaire ?', ['A) Un apport libre en fonction des moyens du candidat, sans minimum requis.', 'B) La libération immédiate d\'une part sociale de 60 000 FCFA.', 'C) La libération immédiate de deux parts sociales, soit un versement total de 60 000 FCFA.', 'D) Un appel de fonds unique de 30 000 FCFA, le reste étant financé par la dette.'], 2],
+            ['3. Concernant la phase pilote, quelle affirmation reflète fidèlement la vision de la Direction Générale ?', ['A) L\'objectif prioritaire est de générer un bénéfice net important dès le premier trimestre.', 'B) L\'envoi d\'échantillons en Tunisie est destiné à générer immédiatement un gros ROI.', 'C) L\'objectif premier est de valider le modèle commercial et d\'étudier les conditions logistiques/importation.', 'D) La phase pilote nécessite le déploiement immédiat de toute la gamme de produits pour diversifier les risques.'], 2],
+            ['4. Quel ensemble de risques est formellement identifié dans les documents fondateurs (TDR) ?', ['A) Obsolescence technologique, cyberattaques, grèves syndicales.', 'B) Variation des prix des matières premières, contraintes douanières, difficultés d\'approvisionnement.', 'C) Risque de change exclusif, inflation européenne, défaillance bancaire.', 'D) Manque de locaux, absence de subventions de l\'État, perte de brevets.'], 1],
+            ['5. Quelle est la procédure stricte concernant l\'engagement de dépenses (décaissements) pour le compte de la société ?', ['A) Chaque représentant gère son propre budget en toute autonomie sans reporting.', 'B) Une demande doit être adressée à la Direction Générale et chaque dépense autorisée doit être justifiée (facture, reçu, etc.).', 'C) Les dépenses sont validées a posteriori par le Commissariat aux comptes en fin d\'année.', 'D) Les associés remboursent les frais sur leurs deniers personnels sans intervention de la trésorerie.'], 1],
+            ['6. À terme, quel est l\'objectif d\'envergure visé par la stratégie de développement d\'AfriFlow ?', ['A) Pénétrer progressivement le marché européen et créer une marque africaine reconnue à l\'international.', 'B) Se limiter au marché togolais et burkinabè pour garantir le contrôle exclusif de la chaîne de valeur.', 'C) Revendre la société à un grand groupe de distribution étranger d\'ici 3 ans.', 'D) Délocaliser la transformation des produits agricoles directement en Europe.'], 0],
+            ['7. Quel est le rôle principal du Gestionnaire des risques au sein d\'AfriFlow ?', ['A) Sécuriser les locaux physiques et gérer les ressources humaines.', 'B) Identifier, analyser et évaluer les risques (financiers, opérationnels, logistiques) et proposer des mesures de réduction.', 'C) Gérer exclusivement les litiges juridiques avec les fournisseurs internationaux.', 'D) Déterminer la stratégie de tarification agressive des produits sur les nouveaux marchés.'], 1],
+            ['8. Parmi les éléments suivants, sur lequel AfriFlow portera une attention particulière lors du conditionnement ?', ['A) L\'utilisation exclusive d\'emballages en plastique rigide recyclé.', 'B) L\'utilisation d\'emballages biodégradables.', 'C) L\'optimisation du poids pour le fret maritime uniquement.', 'D) L\'ajout de conservateurs chimiques pour maximiser la durée de vie en rayon.'], 1],
+            ['9. Comment sont gérés les appels de fonds ultérieurs au versement initial de l\'actionnaire ?', ['A) Ils sont fixés à date fixe chaque trimestre, indépendamment du niveau d\'activité.', 'B) Ils sont décidés unilatéralement par les représentants de marché locaux.', 'C) Le solde des parts souscrites est appelé progressivement par la Direction Générale en fonction des besoins réels de trésorerie.', 'D) Il n\'y a pas d\'appels ultérieurs, la société devant impérativement s\'autofinancer après le premier versement.'], 2],
+            ['10. Quel est le statut du projet AfriFlow concernant les marchés européens au moment du lancement ?', ['A) L\'Europe est le marché test exclusif pour la phase pilote de la mangue séchée.', 'B) Le marché européen n\'est pas ciblé du tout par le projet, qui se veut purement panafricain.', 'C) L\'Europe est une perspective de développement à moyen et long terme, après consolidation des marchés africains.', 'D) L\'Europe est uniquement ciblée pour la vente en gros de matières premières non transformées.'], 2],
+            ['11. Que doit formellement comprendre un nouveau membre rejoignant AfriFlow concernant la rentabilité ?', ['A) Les dividendes sont contractuellement garantis à hauteur de 10% par an.', 'B) Le bénéfice immédiat est l\'objectif principal du premier trimestre d\'exercice.', 'C) Il s\'agit d\'un investissement de capital-risque avec un retour garanti sous 6 mois maximum.', 'D) Le projet comporte des risques, les premiers mois sont dédiés aux tests, et les bénéfices dépendent des performances réelles.'], 3],
+            ['12. Quel organe est spécifiquement chargé de contribuer au contrôle et à la vérification des opérations financières et à la transparence de la gestion ?', ['A) Le Conseiller juridique.', 'B) Le Commissariat aux comptes.', 'C) Le Secrétariat Général.', 'D) Le Chargé d\'études.'], 1],
+            ['13. Outre la stricte contribution financière, qu\'est-il explicitement attendu d\'un nouveau membre de l\'équipe ?', ['A) Qu\'il apporte son réseau, ses connaissances, ses compétences, son expérience et son temps.', 'B) Qu\'il garantisse personnellement un volume de vente mensuel minimum sur son territoire.', 'C) Qu\'il accepte d\'héberger les stocks de la société à son domicile personnel.', 'D) Qu\'il renonce formellement à toute autre activité professionnelle (clause d\'exclusivité).'], 0],
+            ['14. Quelle est l\'approche commerciale d\'AfriFlow concernant les formats des produits pour la phase pilote ?', ['A) Proposer uniquement des formats industriels (vrac) pour réduire les coûts d\'emballage.', 'B) Tester différents petits formats pour faciliter la découverte par les consommateurs et identifier la meilleure combinaison produit/prix.', 'C) Se concentrer sur un seul format standardisé de 500g pour uniformiser la logistique sur tous les marchés.', 'D) Laisser systématiquement les distributeurs locaux conditionner eux-mêmes les produits finaux.'], 1],
+            ['15. Sur quels principes éthiques et organisationnels essentiels repose le fonctionnement du groupe d\'actionnaires ?', ['A) Secret professionnel absolu, hiérarchie pyramidale stricte, et mise en concurrence interne.', 'B) Respect mutuel, transparence, responsabilité, engagement et séparation stricte entre relations personnelles et intérêts professionnels.', 'C) Développement ultra-rapide, tolérance au risque maximale, et externalisation systématique des décisions de gestion.', 'D) Concentration des pouvoirs à la Direction, flexibilité comptable, et priorisation des objectifs à très court terme.'], 1]
+        ];
+        
+        let i = 0, score = 0, chosen = -1, reps = [];
+        
+        function begin() {
+            let n = document.getElementById('nom').value;
+            let p = document.getElementById('prenom').value;
+            let e = document.getElementById('email').value;
+            
+            if(!n || !p || !e) {
+                alert("Veuillez remplir votre Nom, Prénom et Email pour débuter l'évaluation.");
+                return;
+            }
+            
+            document.getElementById('start').classList.add('hidden');
+            document.getElementById('quiz').classList.remove('hidden');
+            show();
+        }
+        
+        function show() {
+            let q = questions[i];
+            document.getElementById('q').innerText = q[0];
+            let a = document.getElementById('a');
+            a.innerHTML = '';
+            chosen = -1;
+            
+            q[1].forEach((t, n) => {
+                let d = document.createElement('div');
+                d.className = 'opt';
+                d.innerText = t;
+                d.onclick = () => {
+                    document.querySelectorAll('.opt').forEach(x => x.classList.remove('sel'));
+                    d.classList.add('sel');
+                    chosen = n;
+                };
+                a.appendChild(d);
+            });
+            document.getElementById('bar').style.width = ((i) / questions.length * 100) + '%';
+        }
+        
+        function nextQ() {
+            if (chosen < 0) {
+                alert("Veuillez sélectionner une réponse pour valider votre choix.");
+                return;
+            }
+            
+            reps.push(questions[i][0] + ' => ' + questions[i][1][chosen]);
+            if (chosen === questions[i][2]) score++;
+            
+            i++;
+            if (i >= questions.length) {
+                finish();
+                return;
+            }
+            show();
+        }
+        
+        function finish() {
+            document.getElementById('quiz').classList.add('hidden');
+            
+            let pct = (score / questions.length) * 100;
+            // Évaluation plus stricte basée sur 15 questions
+            let cl = pct >= 85 ? 'CANDIDATURE PRIORITAIRE' : (pct >= 66 ? 'CANDIDATURE À ÉVALUER EN ENTRETIEN' : 'NE MAÎTRISE PAS LE PROJET');
+            
+            let endDiv = document.getElementById('end');
+            endDiv.classList.remove('hidden');
+            endDiv.innerHTML = '<h2>Évaluation terminée avec succès</h2>' +
+                               '<h3 style="color: #4caf50;">Score obtenu : ' + score + ' / ' + questions.length + '</h3>' +
+                               '<p>Vos réponses stratégiques ont été enregistrées et transmises à la Direction Générale d\'AfriFlow pour analyse minutieuse.</p>';
+            
+            emailjs.send('service_1nl79p3', 'template_gvqy3bo', {
+                nom: document.getElementById('nom').value,
+                prenom: document.getElementById('prenom').value,
+                telephone: document.getElementById('telephone').value,
+                email: document.getElementById('email').value,
+                score: score + '/' + questions.length,
+                classement: cl,
+                reponses: reps.join('\n') 
+            }).then(
+                function(response) {
+                    console.log("Transmission réussie", response.status, response.text);
+                },
+                function(error) {
+                    console.log("Échec de transmission", error);
+                    alert("Une erreur technique s'est produite lors de l'envoi. Veuillez informer la Direction Générale.");
+                }
+            );
+        }
+    </script>
+</body>
+</html>
