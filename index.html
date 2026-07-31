@@ -7,7 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <style>
         body { margin:0; font-family: 'Segoe UI', sans-serif; background:#111; color:#fff; display:flex; justify-content:center; align-items:center; min-height:100vh; }
-        .card { width:90%; max-width:900px; background:#1b1b1b; border-radius:20px; padding:30px; }
+        .card { width:90%; max-width:900px; background:#1b1b1b; border-radius:20px; padding:30px; position: relative;}
         .progress { height:8px; background:#333; border-radius:20px; margin-bottom: 20px; }
         .bar { height:8px; width:0; background:#4caf50; border-radius:20px; transition: width 0.3s ease; }
         .btn { background:#2563eb; color:#fff; border:0; padding:12px 20px; border-radius:10px; cursor:pointer; font-size: 16px; margin-top: 15px;}
@@ -15,22 +15,44 @@
         .opt { padding:12px; margin:10px 0; background:#222; border-radius:10px; cursor:pointer; transition: 0.2s;}
         .opt:hover { background: #333; }
         .opt.sel { border:2px solid #4caf50; background: #1e3a1f; }
-        .hidden { display:none; }
+        .hidden { display:none !important; }
         input { width: 100%; margin: 8px 0; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #222; color: #fff; box-sizing: border-box;}
+        .text-center { text-align: center; }
+        
+        /* Style du chronomètre */
+        #timer { position: absolute; top: 20px; right: 30px; font-size: 18px; font-weight: bold; color: #4caf50; background: #222; padding: 8px 15px; border-radius: 8px; border: 1px solid #444;}
     </style>
 </head>
 <body>
     <div class="card">
+        <!-- CHRONOMÈTRE -->
+        <div id="timer" class="hidden">⏱ <span id="timeDisplay">07:30</span></div>
+
         <!-- ÉCRAN D'ACCUEIL -->
         <div id="start">
             <h1>AFRIFLOW - Évaluation d'Intégration Stratégique</h1>
             <p>Veuillez remplir vos coordonnées pour commencer l'évaluation basée sur les TDR du projet.</p>
+            <div style="background: #3a1c1c; border: 1px solid #ff4444; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+                <p style="color: #ff9800; font-weight: bold; margin: 0;">⚠️ RÈGLES STRICTES :</p>
+                <ul style="color: #ffcccc; margin-top: 5px; margin-bottom: 0;">
+                    <li>Vous disposez de <strong>7 min 30 sec</strong> (soit 30 secondes par question).</li>
+                    <li><strong>INTERDICTION DE QUITTER L'ÉCRAN :</strong> Si vous changez d'onglet, de fenêtre ou d'application, le test sera instantanément annulé et vous serez bloqué pendant 24 heures.</li>
+                </ul>
+            </div>
             <input id="nom" placeholder="Nom" required>
             <input id="prenom" placeholder="Prénom" required>
             <input id="telephone" placeholder="Téléphone" required>
             <input id="email" type="email" placeholder="Email" required>
             <br>
             <button class="btn" onclick="begin()">Commencer l'évaluation</button>
+        </div>
+
+        <!-- ÉCRAN DE VERROUILLAGE ANTI-TRICHE -->
+        <div id="lockout" class="hidden text-center">
+            <h2 style="color: #ff4444;">⛔ Accès Verrouillé</h2>
+            <p>Vous avez quitté l'écran actif pendant l'évaluation ou votre temps est écoulé.</p>
+            <p>Par mesure d'équité et de sécurité, ce test a été interrompu. Un rapport a été envoyé à la Direction Générale.</p>
+            <p style="margin-top: 20px;">Vous pourrez retenter votre chance dans : <br><strong id="lockout-time" style="font-size: 24px; color: #ff9800;"></strong></p>
         </div>
 
         <!-- ÉCRAN DU QCM -->
@@ -49,7 +71,6 @@
         // Initialisation de EmailJS
         emailjs.init({publicKey: 'bn0sR_2xfMu-debdr'});
         
-        // 15 Questions stratégiques basées sur les TDR d'AfriFlow
         const questions = [
             ['1. Quelle est la méthodologie exacte adoptée par AfriFlow pour limiter les risques avant toute expansion majeure ?', ['A) Produire massivement → Exporter → Sécuriser les parts de marché', 'B) Tester → Mesurer → Corriger → Développer → Exporter', 'C) S\'endetter → Investir en marketing → Recruter → Exporter', 'D) Cibler l\'Europe immédiatement pour maximiser les marges initiales'], 1],
             ['2. Quelles sont les modalités de libération du capital lors de l\'intégration initiale d\'un nouvel actionnaire ?', ['A) Un apport libre en fonction des moyens du candidat, sans minimum requis.', 'B) La libération immédiate d\'une part sociale de 60 000 FCFA.', 'C) La libération immédiate de deux parts sociales, soit un versement total de 60 000 FCFA.', 'D) Un appel de fonds unique de 30 000 FCFA, le reste étant financé par la dette.'], 2],
@@ -70,7 +91,75 @@
         
         let i = 0, score = 0, chosen = -1, reps = [];
         
+        // 15 questions * 30 secondes = 450 secondes (7min 30s)
+        const tempsMax = 450; 
+        let tempsRestant = tempsMax;
+        let chronoInterval;
+        let quizActive = false;
+        const lockoutKey = 'afriflow_lockout_timer';
+
+        // Vérification de la pénalité de 24h au chargement
+        window.onload = function() {
+            checkLockout();
+        };
+
+        function checkLockout() {
+            let lockoutTime = localStorage.getItem(lockoutKey);
+            if (lockoutTime) {
+                let timePassed = Date.now() - parseInt(lockoutTime);
+                let timeRequired = 24 * 60 * 60 * 1000; // 24 heures en millisecondes
+                
+                if (timePassed < timeRequired) {
+                    let remaining = timeRequired - timePassed;
+                    let hours = Math.floor(remaining / (1000 * 60 * 60));
+                    let minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+                    
+                    document.getElementById('start').classList.add('hidden');
+                    document.getElementById('quiz').classList.add('hidden');
+                    document.getElementById('timer').classList.add('hidden');
+                    document.getElementById('end').classList.add('hidden');
+                    
+                    document.getElementById('lockout').classList.remove('hidden');
+                    document.getElementById('lockout-time').innerText = hours + "h et " + minutes + "m restants";
+                    return true; // L'utilisateur est bloqué
+                } else {
+                    localStorage.removeItem(lockoutKey); // Débloqué après 24h
+                }
+            }
+            return false;
+        }
+
+        // DÉTECTION DE SORTIE D'ÉCRAN (ANTI-TRICHE)
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden && quizActive) {
+                triggerCheatPenalty();
+            }
+        });
+
+        function triggerCheatPenalty() {
+            quizActive = false;
+            clearInterval(chronoInterval);
+            
+            // Applique la pénalité de 24h
+            localStorage.setItem(lockoutKey, Date.now());
+            
+            // Envoi immédiat d'un email d'alerte à la Direction
+            emailjs.send('service_1nl79p3', 'template_gvqy3bo', {
+                nom: document.getElementById('nom').value,
+                prenom: document.getElementById('prenom').value,
+                telephone: document.getElementById('telephone').value,
+                email: document.getElementById('email').value,
+                score: "ÉLIMINÉ (Sortie d'écran)", 
+                classement: "FRAUDE DÉTECTÉE",
+                reponses: "Le candidat a quitté l'onglet/la fenêtre pendant le test. Évaluation annulée."
+            });
+
+            checkLockout(); // Affiche l'écran de verrouillage
+        }
+        
         function begin() {
+            if (checkLockout()) return; // Empêche de démarrer si déjà bloqué
+
             let n = document.getElementById('nom').value;
             let p = document.getElementById('prenom').value;
             let e = document.getElementById('email').value;
@@ -80,9 +169,38 @@
                 return;
             }
             
+            quizActive = true;
             document.getElementById('start').classList.add('hidden');
             document.getElementById('quiz').classList.remove('hidden');
+            document.getElementById('timer').classList.remove('hidden');
+            
+            demarrerChrono();
             show();
+        }
+        
+        function demarrerChrono() {
+            chronoInterval = setInterval(function() {
+                tempsRestant--;
+                
+                let minutes = Math.floor(tempsRestant / 60);
+                let secondes = tempsRestant % 60;
+                
+                let minutesStr = minutes < 10 ? "0" + minutes : minutes;
+                let secondesStr = secondes < 10 ? "0" + secondes : secondes;
+                
+                document.getElementById('timeDisplay').innerText = minutesStr + ":" + secondesStr;
+                
+                if (tempsRestant <= 60) {
+                    document.getElementById('timer').style.color = "#ff4444";
+                    document.getElementById('timer').style.borderColor = "#ff4444";
+                }
+                
+                // Fin du temps imparti
+                if (tempsRestant <= 0) {
+                    alert("⏱ Temps écoulé ! Vos réponses actuelles vont être soumises automatiquement.");
+                    finish(); 
+                }
+            }, 1000);
         }
         
         function show() {
@@ -124,33 +242,43 @@
         }
         
         function finish() {
+            quizActive = false; // Désactive la vérification de triche une fois fini
+            clearInterval(chronoInterval);
+            
+            let tempsPasse = tempsMax - (tempsRestant < 0 ? 0 : tempsRestant);
+            let mPasse = Math.floor(tempsPasse / 60);
+            let sPasse = tempsPasse % 60;
+            let tempsFormate = mPasse + " min et " + sPasse + " sec";
+
             document.getElementById('quiz').classList.add('hidden');
+            document.getElementById('timer').classList.add('hidden');
             
             let pct = (score / questions.length) * 100;
-            // Évaluation plus stricte basée sur 15 questions
             let cl = pct >= 85 ? 'CANDIDATURE PRIORITAIRE' : (pct >= 66 ? 'CANDIDATURE À ÉVALUER EN ENTRETIEN' : 'NE MAÎTRISE PAS LE PROJET');
             
             let endDiv = document.getElementById('end');
             endDiv.classList.remove('hidden');
-            endDiv.innerHTML = '<h2>Évaluation terminée avec succès</h2>' +
+            endDiv.innerHTML = '<h2>Évaluation terminée</h2>' +
                                '<h3 style="color: #4caf50;">Score obtenu : ' + score + ' / ' + questions.length + '</h3>' +
-                               '<p>Vos réponses stratégiques ont été enregistrées et transmises à la Direction Générale d\'AfriFlow pour analyse minutieuse.</p>';
+                               '<p>Temps de complétion : ' + tempsFormate + '</p>' +
+                               '<p>Vos réponses stratégiques ont été enregistrées et transmises à la Direction Générale d\'AfriFlow.</p>';
             
+            let scoreFinalEmail = score + '/' + questions.length + ' (Fait en : ' + tempsFormate + ')';
+
             emailjs.send('service_1nl79p3', 'template_gvqy3bo', {
                 nom: document.getElementById('nom').value,
                 prenom: document.getElementById('prenom').value,
                 telephone: document.getElementById('telephone').value,
                 email: document.getElementById('email').value,
-                score: score + '/' + questions.length,
+                score: scoreFinalEmail, 
                 classement: cl,
                 reponses: reps.join('\n') 
             }).then(
                 function(response) {
-                    console.log("Transmission réussie", response.status, response.text);
+                    console.log("Transmission réussie");
                 },
                 function(error) {
                     console.log("Échec de transmission", error);
-                    alert("Une erreur technique s'est produite lors de l'envoi. Veuillez informer la Direction Générale.");
                 }
             );
         }
